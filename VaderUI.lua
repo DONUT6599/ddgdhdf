@@ -10,10 +10,8 @@ if type(Env.VaderUI_Instance) == "table" and Env.VaderUI_Instance.Destroy then
     pcall(Env.VaderUI_Instance.Destroy, Env.VaderUI_Instance)
 end
 
--- the logo id is a Decal, which an ImageLabel will not draw by rbxassetid, so it goes
--- through rbxthumb (420px cap); swap in the Image id behind it for full resolution
-local DefaultLogo = "rbxthumb://type=Asset&id=135373365252778&w=420&h=420"
-local DefaultMascot = "rbxassetid://83781020069934"
+local DefaultLogo = "https://github.com/DONUT6599/ddgdhdf/blob/main/Asset_1.png?raw=true"
+local DefaultMascot = "https://github.com/DONUT6599/ddgdhdf/blob/main/%E0%B9%84%E0%B8%A1%E0%B9%88%E0%B8%A1%E0%B8%B5%E0%B8%8A%E0%B8%B7%E0%B9%88%E0%B8%AD%20114_20260915013214.png?raw=true"
 
 local Palettes = {
     Dark = {
@@ -64,6 +62,7 @@ local Library = {
     Theme = "Dark",
     Unloaded = false,
     UseAcrylic = false,
+    MascotTransparency = 0.5,
     MinimizeKey = Enum.KeyCode.RightControl,
     MinimizeKeybind = nil,
     Logo = nil,
@@ -285,6 +284,18 @@ function Library:ToggleTransparency(Value)
     end
 end
 
+-- 0 is solid, 1 hides her; remembered in VaderUI_mascot_alpha.txt
+function Library:SetMascotTransparency(Value)
+    Value = math.clamp(tonumber(Value) or 0.5, 0, 1)
+    self.MascotTransparency = Value
+    if self.Window and self.Window.Mascot then
+        self.Window.Mascot.ImageTransparency = Value
+    end
+    if writefile then
+        pcall(writefile, "VaderUI_mascot_alpha.txt", tostring(Value))
+    end
+end
+
 function Library:Notify(Config)
     Config = Config or {}
     EnsureGui()
@@ -440,18 +451,23 @@ function Library:CreateWindow(Config)
 
     local function HookDrag(Handle)
         Handle.InputBegan:Connect(function(Input)
-            if not IsPress(Input) then
+            if not IsPress(Input) or Window.Minimized then
                 return
             end
             Drag.Active, Drag.Start, Drag.Origin = true, Input.Position, Holder.Position
-            Input.Changed:Connect(function()
-                if Input.UserInputState == Enum.UserInputState.End then
-                    Drag.Active = false
-                    ShownPosition = Holder.Position
-                end
-            end)
         end)
     end
+
+    -- ends here rather than on the input object: mouse input objects are reused, so a
+    -- listener left on one would later save the minimized, off-screen spot as "shown"
+    Track(UserInputService.InputEnded:Connect(function(Input)
+        if Drag.Active and IsPress(Input) then
+            Drag.Active = false
+            if not Window.Minimized then
+                ShownPosition = Holder.Position
+            end
+        end
+    end))
 
     Track(UserInputService.InputChanged:Connect(function(Input)
         if Drag.Active and IsMove(Input) then
@@ -483,14 +499,22 @@ function Library:CreateWindow(Config)
     -- cards go part see-through so the mascot reads behind them
     local CardAlpha = MascotImage and 0.3 or 0
     if MascotImage then
-        New("ImageLabel", {
+        -- explicit config wins, then the remembered setting, then the default
+        local Saved
+        if isfile and readfile and isfile("VaderUI_mascot_alpha.txt") then
+            local ok, Text = pcall(readfile, "VaderUI_mascot_alpha.txt")
+            Saved = ok and tonumber(Text) or nil
+        end
+        self.MascotTransparency = math.clamp(Config.MascotTransparency or Saved or self.MascotTransparency, 0, 1)
+
+        Window.Mascot = New("ImageLabel", {
             Name = "Mascot",
             BackgroundTransparency = 1,
             AnchorPoint = Vector2.new(1, 1),
             Position = UDim2.new(1, -4, 1, 0),
             Size = UDim2.new(1, -8, 1, -8),
             Image = MascotImage,
-            ImageTransparency = Config.MascotTransparency or 0.5,
+            ImageTransparency = self.MascotTransparency,
             ScaleType = Enum.ScaleType.Fit,
             Parent = Work,
         }, {
