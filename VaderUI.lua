@@ -10,8 +10,10 @@ if type(Env.VaderUI_Instance) == "table" and Env.VaderUI_Instance.Destroy then
     pcall(Env.VaderUI_Instance.Destroy, Env.VaderUI_Instance)
 end
 
-local DefaultLogo = "https://cdn.discordapp.com/attachments/1500882704839741520/1559484997055025183/507784748_18047206067445721_9132235552033131453_n.jpg?ex=6acf3f15&is=6acded95&hm=d70547ff26d5c7b74534f8d1557bd5065faedd8903dff28f750286885b7bce86&"
-local DefaultMascot = "https://github.com/DONUT6599/ddgdhdf/blob/main/%E0%B9%84%E0%B8%A1%E0%B9%88%E0%B8%A1%E0%B8%B5%E0%B8%8A%E0%B8%B7%E0%B9%88%E0%B8%AD%20114_20260915013214.png?raw=true"
+-- the logo id is a Decal, which an ImageLabel will not draw by rbxassetid, so it goes
+-- through rbxthumb (420px cap); swap in the Image id behind it for full resolution
+local DefaultLogo = "rbxthumb://type=Asset&id=135373365252778&w=420&h=420"
+local DefaultMascot = "rbxassetid://83781020069934"
 
 local Palettes = {
     Dark = {
