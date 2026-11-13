@@ -148,6 +148,20 @@ local function IsImageData(Data)
     return Data:sub(1, 3) == "\255\216\255" or Data:sub(1, 4) == "GIF8" or (Data:sub(1, 4) == "RIFF" and Data:sub(9, 12) == "WEBP")
 end
 
+-- getcustomasset closes Roblox outright on some PCs, with no error to catch (a customer's, 2026-11-13). A flag file
+-- says "running" while a call is in there: a launch that finds it still saying so knows the last call never came
+-- back, and goes without pictures on this PC from then on (delete VaderUI_asset_check.txt to try again)
+local function SafeAsset(path)
+    local get = getcustomasset or getsynasset
+    if not (get and isfile and readfile and writefile) then return nil end
+    local okFlag, flag = pcall(function() return isfile("VaderUI_asset_check.txt") and readfile("VaderUI_asset_check.txt") end)
+    if okFlag and flag == "running" then return nil end
+    pcall(writefile, "VaderUI_asset_check.txt", "running")
+    local ok, id = pcall(get, path)
+    pcall(writefile, "VaderUI_asset_check.txt", "done")
+    return ok and id or nil
+end
+
 local function ResolveImage(Source, CacheName)
     if type(Source) == "number" then
         return "rbxassetid://" .. Source
@@ -198,8 +212,7 @@ local function ResolveImage(Source, CacheName)
         return nil
     end
 
-    local ok, Asset = pcall(GetAsset, Path)
-    return ok and Asset or nil
+    return SafeAsset(Path)
 end
 
 local function GetGuiParent()
