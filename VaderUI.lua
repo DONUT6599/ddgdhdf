@@ -137,6 +137,17 @@ local function IsMove(Input)
         or Input.UserInputType == Enum.UserInputType.Touch
 end
 
+-- image data by its first bytes: a whole PNG (signature, and its closing IEND chunk), a JPEG, a GIF or a WebP
+local function IsImageData(Data)
+    if type(Data) ~= "string" or #Data < 100 then
+        return false
+    end
+    if Data:sub(1, 8) == "\137PNG\r\n\26\n" then
+        return Data:sub(-8, -5) == "IEND"
+    end
+    return Data:sub(1, 3) == "\255\216\255" or Data:sub(1, 4) == "GIF8" or (Data:sub(1, 4) == "RIFF" and Data:sub(9, 12) == "WEBP")
+end
+
 local function ResolveImage(Source, CacheName)
     if type(Source) == "number" then
         return "rbxassetid://" .. Source
@@ -156,17 +167,34 @@ local function ResolveImage(Source, CacheName)
         return nil
     end
 
+    -- only a real image file may reach getcustomasset: a download that was cut off, or an error page saved as the
+    -- picture, crashes the client when the window is built, on every launch (the file is cached)
+    local function Cached(Path)
+        if not isfile(Path) then
+            return false
+        end
+        if readfile == nil then
+            return true -- can't look inside: as before
+        end
+        local ok, Data = pcall(readfile, Path)
+        return ok and IsImageData(Data)
+    end
+
     local Path = Source
     if Source:match("^https?://") then
         Path = CacheName
-        if not isfile(Path) then
+        if not Cached(Path) then
+            -- nothing cached, or what's cached is no image: download again, and go without the picture if that fails too
             local ok, Data = pcall(game.HttpGet, game, Source)
-            if not ok or writefile == nil then
+            if not ok or writefile == nil or not IsImageData(Data) then
+                if delfile and isfile(Path) then
+                    pcall(delfile, Path)
+                end
                 return nil
             end
             writefile(Path, Data)
         end
-    elseif not isfile(Path) then
+    elseif not Cached(Path) then
         return nil
     end
 
